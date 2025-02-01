@@ -47,7 +47,7 @@ const App = () => {
       setTimeout(() => setCleanupStatus(""), 3000) // Clear status after 3 seconds
     }
 
-    const cleanupTimer = setTimeout(deleteAllDocs, 60000) // 1 minute
+    const cleanupTimer = setTimeout(deleteAllDocs, 600000) // 10 minute
 
     return () => clearTimeout(cleanupTimer)
   }, [copyCollectionRef])
