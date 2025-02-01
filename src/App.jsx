@@ -2,7 +2,7 @@ import React from "react"
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { db } from "./config/firebase"
-import { addDoc, collection, getDocs } from "firebase/firestore"
+import { addDoc, collection, getDocs, deleteDoc } from "firebase/firestore"
 import EyeLogo from "./EyeLogo"
 
 const App = () => {
@@ -16,6 +16,7 @@ const App = () => {
   const [activeTab, setActiveTab] = useState("send")
   const [isLoading, setIsLoading] = useState(false)
   const [foundDoc, setFoundDoc] = useState(null)
+  const [cleanupStatus, setCleanupStatus] = useState("")
 
   const copyCollectionRef = collection(db, "database")
 
@@ -28,6 +29,27 @@ const App = () => {
       }))
     }
     getCopy()
+  }, [copyCollectionRef])
+
+  useEffect(() => {
+    const deleteAllDocs = async () => {
+      setCleanupStatus("Cleaning up old data...")
+      const querySnapshot = await getDocs(copyCollectionRef)
+      const deletePromises = querySnapshot.docs.map(async (doc) => {
+        try {
+          await deleteDoc(doc.ref)
+        } catch (error) {
+          console.error("Error deleting document:", error)
+        }
+      })
+      await Promise.all(deletePromises)
+      setCleanupStatus("Cleanup complete")
+      setTimeout(() => setCleanupStatus(""), 3000) // Clear status after 3 seconds
+    }
+
+    const cleanupTimer = setTimeout(deleteAllDocs, 60000) // 1 minute
+
+    return () => clearTimeout(cleanupTimer)
   }, [copyCollectionRef])
 
   const generateRandomId = async () => {
@@ -122,6 +144,11 @@ const App = () => {
 
   return (
     <div className="h-screen bg-gradient-to-br from-blue-100 to-blue-200 p-2 sm:p-4 md:p-8 flex items-center justify-center">
+      {cleanupStatus && (
+        <div className="fixed top-4 right-4 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-md shadow-md">
+          {cleanupStatus}
+        </div>
+      )}
       <motion.div
         className="w-full h-full max-h-screen bg-white rounded-2xl shadow-2xl overflow-hidden"
         initial={{ opacity: 0, y: 20 }}
@@ -318,6 +345,9 @@ const App = () => {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+        <div className="text-center text-sm text-gray-500 pb-4">
+          Made by Ritesh Borse
         </div>
       </motion.div>
     </div>
