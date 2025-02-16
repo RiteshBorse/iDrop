@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { db } from "./config/firebase"
 import { addDoc, collection, getDocs, deleteDoc } from "firebase/firestore"
 import EyeLogo from "./EyeLogo"
+import AdminPanel from "./components/AdminPanel"
+import AdminLogin from "./components/AdminLogin"
 
 const App = () => {
   const [text, setText] = useState("")
@@ -17,6 +19,8 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [foundDoc, setFoundDoc] = useState(null)
   const [cleanupStatus, setCleanupStatus] = useState("")
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
 
   const copyCollectionRef = collection(db, "database")
 
@@ -86,19 +90,45 @@ const App = () => {
     }
     setIsLoading(true)
     const id = await generateRandomId()
-    await addDoc(copyCollectionRef, {
-      data: file || text,
-      fileName: fileName || null,
-      fileType: fileType || null,
-      isFile: !!file,
-      id: id,
-    })
-    setId(id)
-    setText("")
-    setFile(null)
-    setFileName("")
-    setFileType("")
-    setIsLoading(false)
+    try {
+      await addDoc(copyCollectionRef, {
+        data: file || text,
+        fileName: fileName || null,
+        fileType: fileType || null,
+        isFile: !!file,
+        id: id,
+      })
+      setId(id)
+      setText("")
+      setFile(null)
+      setFileName("")
+      setFileType("")
+      setIsLoading(false)
+      
+      // Add detailed analytics
+      await addDoc(collection(db, "analytics"), {
+        timestamp: new Date(),
+        type: file ? "file" : "text",
+        success: true,
+        count: 1,
+        fileSize: file ? file.length : text.length,
+        fileName: fileName || null,
+        transferId: id
+      })
+    } catch (error) {
+      console.error("Error sending data:", error)
+      // Track failed transfers with details
+      await addDoc(collection(db, "analytics"), {
+        timestamp: new Date(),
+        type: file ? "file" : "text",
+        success: false,
+        error: error.message,
+        count: 1,
+        fileSize: file ? file.length : text.length,
+        fileName: fileName || null
+      })
+      alert("Error sending data. Please try again.")
+    }
   }
 
   const handleReceive = async () => {
@@ -107,15 +137,50 @@ const App = () => {
       return
     }
     setIsLoading(true)
-    const data = await getDocs(copyCollectionRef)
-    const found = data.docs.find((doc) => doc.data().id.toString() === receiveId.toString())
+    try {
+      const data = await getDocs(copyCollectionRef)
+      const found = data.docs.find((doc) => doc.data().id.toString() === receiveId.toString())
 
-    if (found) {
-      setFoundDoc(found)
-      setData(found.data().data)
-    } else {
-      setFoundDoc(null)
-      setData("No data found for this ID")
+      if (found) {
+        setFoundDoc(found)
+        setData(found.data().data)
+        
+        // Track successful receive
+        await addDoc(collection(db, "analytics"), {
+          timestamp: new Date(),
+          type: found.data().isFile ? "file" : "text",
+          success: true,
+          count: 1,
+          action: "receive",
+          transferId: receiveId
+        })
+      } else {
+        setFoundDoc(null)
+        setData("No data found for this ID")
+        
+        // Track failed receive
+        await addDoc(collection(db, "analytics"), {
+          timestamp: new Date(),
+          type: "unknown",
+          success: false,
+          count: 1,
+          action: "receive",
+          error: "ID not found",
+          transferId: receiveId
+        })
+      }
+    } catch (error) {
+      console.error("Error receiving data:", error)
+      // Track error in receive
+      await addDoc(collection(db, "analytics"), {
+        timestamp: new Date(),
+        type: "unknown",
+        success: false,
+        count: 1,
+        action: "receive",
+        error: error.message,
+        transferId: receiveId
+      })
     }
     setIsLoading(false)
   }
@@ -140,6 +205,42 @@ const App = () => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const checkAdmin = (password) => {
+    // Replace with your desired admin password
+    if (password === import.meta.env.VITE_ADMIN_PASSWORD) {
+      setIsAdmin(true)
+      localStorage.setItem("isAdmin", "true")
+    }
+  }
+
+  useEffect(() => {
+    const adminStatus = localStorage.getItem("isAdmin")
+    if (adminStatus === "true") {
+      setIsAdmin(true)
+    }
+  }, [])
+
+  // Add admin login shortcut
+  useEffect(() => {
+    const handleKeyPress = (e) => { 
+      // Using keyCode 65 for 'A'
+      if ((e.metaKey || e.ctrlKey) && e.altKey && e.keyCode === 65) {
+        setShowAdminLogin(true);
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
+  if (showAdminLogin) {
+    return <AdminLogin onLogin={checkAdmin} />
+  }
+
+  if (isAdmin) {
+    return <AdminPanel />
   }
 
   return (
