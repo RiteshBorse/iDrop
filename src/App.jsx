@@ -2,10 +2,12 @@ import React from "react"
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { db } from "./config/firebase"
+import { Helmet } from "react-helmet";
 import { addDoc, collection, getDocs, deleteDoc } from "firebase/firestore"
 import EyeLogo from "./EyeLogo"
 import AdminPanel from "./components/AdminPanel"
 import AdminLogin from "./components/AdminLogin"
+import { ToastContainer, toast } from 'react-toastify';
 
 const App = () => {
   const [text, setText] = useState("")
@@ -85,7 +87,7 @@ const App = () => {
 
   const handleSend = async () => {
     if (!text.trim() && !file) {
-      alert("Please enter some text or select a file to send.")
+      toast("Please enter some text or select a file to send.")
       return
     }
     setIsLoading(true)
@@ -127,13 +129,13 @@ const App = () => {
         fileSize: file ? file.length : text.length,
         fileName: fileName || null
       })
-      alert("Error sending data. Please try again.")
+      toast("Error sending data. Please try again.")
     }
   }
 
   const handleReceive = async () => {
     if (!receiveId.trim()) {
-      alert("Please enter an ID to receive data.")
+      toast("Please enter an ID to receive data.")
       return
     }
     setIsLoading(true)
@@ -187,12 +189,12 @@ const App = () => {
 
   const handleCopy = async () => {
     if (!data) {
-      alert("No data to copy.")
+      toast("No data to copy.")
       return
     }
     try {
       await navigator.clipboard.writeText(data)
-      alert("Text copied to clipboard!")
+      toast("Text copied to clipboard!")
     } catch (err) {
       console.error("Failed to copy text: ", err)
     }
@@ -244,6 +246,14 @@ const App = () => {
   }
 
   return (
+    <>
+    <ToastContainer />
+    <Helmet>
+        <title>iDrop - Fast and Secure File Transfer</title>
+        <meta name="description" content="iDrop allows you to send and receive files securely and quickly." />
+        <meta name="keywords" content="iDrop, file transfer, send files, receive files, secure file transfer" />
+      </Helmet>
+    
     <div className="h-screen bg-gradient-to-br from-blue-100 to-blue-200 p-2 sm:p-4 md:p-8 flex items-center justify-center">
       {cleanupStatus && (
         <div className="fixed top-4 right-4 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-md shadow-md">
@@ -452,6 +462,7 @@ const App = () => {
         </div>
       </motion.div>
     </div>
+    </>
   )
 }
 
